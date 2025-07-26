@@ -1,88 +1,95 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 4.0)
-project(wa-sqlite C)
 
-# Source files
-set(C_SOURCES
-        sqlite/build/sqlite3.c
+PROJECT(Camphor
+        VERSION 0.1.0
+        DESCRIPTION "Ship your bulk import feature in minutes!"
+        HOMEPAGE_URL "https://camphor.cloud"
+        LANGUAGES C
+)
+SET(CAMPHOR_HOME "$ENV{HOME}/.camphor")
+
+ADD_EXECUTABLE(parseExcel
+        # sqlite
+        sqlite/sqlite3.c
         sqlite/extension-functions.c
+
+        # wa-sqlite
         src/main.c
         src/libauthorizer.c
         src/libfunction.c
         src/libhook.c
         src/libprogress.c
         src/libvfs.c
+
+        # parser
+        parser/xlsxio.c
+        parser/utils.c
 )
 
-# Include directories
-include_directories(
+TARGET_INCLUDE_DIRECTORIES(parseExcel PRIVATE
+        "${CAMPHOR_HOME}/include"
+        sqlite
         src
-        sqlite/build
+        parser
+)
+TARGET_LINK_DIRECTORIES(parseExcel PRIVATE
+        "${CAMPHOR_HOME}/lib"
+)
+TARGET_LINK_LIBRARIES(parseExcel PRIVATE
+        xlsxio_read
+        minizip
+        expat
+        z
+        workerfs.js
+)
+TARGET_COMPILE_DEFINITIONS(parseExcel PRIVATE
+        # Disable unused SQLite features
+        SQLITE_OMIT_AUTOINIT
+        SQLITE_OMIT_DECLTYPE
+        SQLITE_OMIT_DEPRECATED
+        SQLITE_OMIT_LOAD_EXTENSION
+        SQLITE_OMIT_SHARED_CACHE
+
+        SQLITE_DEFAULT_MEMSTATUS=0
+        SQLITE_DEFAULT_WAL_SYNCHRONOUS=1
+        SQLITE_DQS=0
+        SQLITE_LIKE_DOESNT_MATCH_BLOBS
+        SQLITE_MAX_EXPR_DEPTH=0
+        SQLITE_THREADSAFE=0
+        SQLITE_USE_ALLOCA
+        SQLITE_ENABLE_BATCH_ATOMIC_WRITE
 )
 
-# Common defines
-add_definitions(
-        -DSQLITE_DEFAULT_MEMSTATUS=0
-        -DSQLITE_DEFAULT_WAL_SYNCHRONOUS=1
-        -DSQLITE_DQS=0
-        -DSQLITE_LIKE_DOESNT_MATCH_BLOBS
-        -DSQLITE_MAX_EXPR_DEPTH=0
-        -DSQLITE_OMIT_AUTOINIT
-        -DSQLITE_OMIT_DECLTYPE
-        -DSQLITE_OMIT_DEPRECATED
-        -DSQLITE_OMIT_LOAD_EXTENSION
-        -DSQLITE_OMIT_SHARED_CACHE
-        -DSQLITE_THREADSAFE=0
-        -DSQLITE_USE_ALLOCA
-        -DSQLITE_ENABLE_BATCH_ATOMIC_WRITE
+SET(EM_LIBRARIES
+        --js-library=${CMAKE_SOURCE_DIR}/src/libadapters.js
+        --post-js=${CMAKE_SOURCE_DIR}/src/libauthorizer.js
+        --post-js=${CMAKE_SOURCE_DIR}/src/libfunction.js
+        --post-js=${CMAKE_SOURCE_DIR}/src/libhook.js
+        --post-js=${CMAKE_SOURCE_DIR}/src/libprogress.js
+        --post-js=${CMAKE_SOURCE_DIR}/src/libvfs.js
 )
-
-# Emscripten flags
-set(EMFLAGS_COMMON
-        "-sALLOW_MEMORY_GROWTH=1"
-        "-sWASM=1"
-        "-sINVOKE_RUN"
-        "-sENVIRONMENT=web,worker"
-        "-sSTACK_SIZE=512KB"
-        "-sWASM_BIGINT=0"
+EXECUTE_PROCESS(
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/expand_json_flags.py ${CMAKE_SOURCE_DIR}/src/exported_functions.json
+        OUTPUT_VARIABLE exported_functions
+        OUTPUT_STRIP_TRAILING_WHITESPACE
 )
-
-set(EMFLAGS_INTERFACES
-        "-sEXPORTED_FUNCTIONS=src/exported_functions.json"
-        "-sEXPORTED_RUNTIME_METHODS=src/extra_exported_runtime_methods.json"
+EXECUTE_PROCESS(
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/expand_json_flags.py ${CMAKE_SOURCE_DIR}/src/extra_exported_runtime_methods.json
+        OUTPUT_VARIABLE exported_runtime_methods
+        OUTPUT_STRIP_TRAILING_WHITESPACE
 )
-
-set(EMFLAGS_LIBRARIES
-        "--js-library src/libadapters.js"
-        "--post-js src/libauthorizer.js"
-        "--post-js src/libfunction.js"
-        "--post-js src/libhook.js"
-        "--post-js src/libprogress.js"
-        "--post-js src/libvfs.js"
-)
-
-set(EMFLAGS_ASYNCIFY_COMMON
-        "-sASYNCIFY"
-        "-sASYNCIFY_IMPORTS=src/asyncify_imports.json"
-)
-
-set(EMFLAGS_BUILD "-Oz" "-flto")
-set(EMFLAGS_ASYNCIFY "-sASYNCIFY_STACK_SIZE=16384")
-
-add_library(wa-sqlite STATIC ${C_SOURCES})
-set_target_properties(wa-sqlite-static PROPERTIES
-        OUTPUT_NAME "wa-sqlite"
-)
-
-add_library(wa-sqlite-js ${C_SOURCES})
-set_target_properties(wa-sqlite-js PROPERTIES
-        OUTPUT_NAME "wa-sqlite"
-        SUFFIX ".js"
-)
-target_link_options(wa-sqlite-js PRIVATE 
-        ${EMFLAGS_BUILD}
-        ${EMFLAGS_COMMON}
-        ${EMFLAGS_INTERFACES}
-        ${EMFLAGS_LIBRARIES}
-        ${EMFLAGS_ASYNCIFY_COMMON}
-        ${EMFLAGS_ASYNCIFY}
+TARGET_LINK_OPTIONS(parseExcel PRIVATE
+        -sEXPORT_ES6=1
+        -sEXPORT_NAME="parseExcelModule"
+        -sEXPORTED_FUNCTIONS=${exported_functions}
+        -sEXPORTED_RUNTIME_METHODS=${exported_runtime_methods}
+        -sENVIRONMENT=["worker"]
+        -sMODULARIZE=1
+        -sFORCE_FILESYSTEM=1
+        -sNO_EXIT_RUNTIME=1
+        -sALLOW_MEMORY_GROWTH=1
+        -sWASM_BIGINT=0
+        -O3
+        -flto
+        ${EM_LIBRARIES}
 )

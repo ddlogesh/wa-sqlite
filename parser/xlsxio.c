@@ -1,9 +1,5 @@
 #include "xlsxio.h"
-#ifdef __EMSCRIPTEN__
 #include <emscripten.h>
-#else
-#define EMSCRIPTEN_KEEPALIVE
-#endif
 
 EMSCRIPTEN_KEEPALIVE
 void getWorksheetNames(const char *file_name, const char *db_filename) {
