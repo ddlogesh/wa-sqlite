@@ -9,7 +9,4 @@
 !.yarn/versions
 .pnp.*
 
-/cache
-/debug
-/deps
-/tmp
+build
