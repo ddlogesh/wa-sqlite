@@ -1,6 +1,5 @@
-#include <stdio.h>
 #include "utils.h"
 
-void throwError(const char *errMsg) {
-    fprintf(stderr, "ERR: %s\n", errMsg);
+void throw_error(const char *err_msg) {
+    fprintf(stderr, "ERR: %s\n", err_msg);
 }
