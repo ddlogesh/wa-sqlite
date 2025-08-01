@@ -17,5 +17,7 @@
   "UTF32ToString",
   "intArrayFromString",
   "intArrayToString",
-  "writeArrayToMemory"
+  "writeArrayToMemory",
+  "FS",
+  "WORKERFS"
 ]
