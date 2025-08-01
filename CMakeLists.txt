@@ -51,6 +51,7 @@ TARGET_LINK_LIBRARIES(excel-parser PRIVATE
         z
 )
 TARGET_COMPILE_DEFINITIONS(excel-parser PRIVATE
+        # TODO: Reduce the SQLite build size
         # Disable unused SQLite features
         SQLITE_OMIT_AUTOINIT
         SQLITE_OMIT_DECLTYPE
@@ -79,6 +80,7 @@ IF (EMSCRIPTEN)
             OUTPUT_VARIABLE exported_runtime_methods
             OUTPUT_STRIP_TRAILING_WHITESPACE
     )
+    # TODO: Remove unused libraries
     SET(EM_LIBRARIES
             --js-library=${EMSCRIPTEN_ROOT_PATH}/src/lib/libworkerfs.js
             --js-library=${CMAKE_SOURCE_DIR}/src/libadapters.js
